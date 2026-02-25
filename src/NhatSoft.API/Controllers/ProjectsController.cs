@@ -14,9 +14,12 @@ public class ProjectsController(IProjectService projectService) : BaseApiControl
 
     [HttpGet]
     [AllowAnonymous]
-    public async Task<IActionResult> GetAll([FromQuery] PaginationFilter filter)
+    //  Đổi thành ProjectFilterParams để nhận được cả IsFeatured, FromDate...
+    public async Task<IActionResult> GetAll([FromQuery] ProjectFilterParams filter)
     {
         var (data, total) = await projectService.GetPagedProjectsAsync(filter);
+
+        // Trả về kết quả phân trang chuẩn
         return Paged(data, filter.PageNumber, filter.PageSize, total, "GetProjects");
     }
 

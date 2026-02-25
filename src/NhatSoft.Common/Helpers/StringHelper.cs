@@ -11,10 +11,14 @@ public static class StringHelper
         if (string.IsNullOrWhiteSpace(text))
             return string.Empty;
 
-        // 1. Chuyển về chữ thường
+        // 1. Chuyển thành chữ thường
         text = text.ToLowerInvariant();
 
-        // 2. Loại bỏ dấu tiếng Việt (Normalize)
+        // 2. Xử lý chữ 'đ' riêng (Trước khi Normalize để tránh lỗi sót font)
+        // Vì đã ToLower nên chỉ cần replace 'đ', không cần 'Đ'
+        text = text.Replace("đ", "d");
+
+        // 3. Bỏ dấu (Normalize)
         var normalizedString = text.Normalize(NormalizationForm.FormD);
         var stringBuilder = new StringBuilder();
 
@@ -29,16 +33,18 @@ public static class StringHelper
 
         text = stringBuilder.ToString().Normalize(NormalizationForm.FormC);
 
-        // 3. Thay thế đ -> d
-        text = Regex.Replace(text, "[đĐ]", "d");
-
-        // 4. Xóa các ký tự đặc biệt, giữ lại chữ cái, số và dấu gạch ngang
+        // 4. Giữ lại: Chữ thường, số, khoảng trắng (\s), gạch ngang (-)
+        // Loại bỏ các ký tự đặc biệt (@, #, $, %, ^, &...)
         text = Regex.Replace(text, @"[^a-z0-9\s-]", "");
 
-        // 5. Thay khoảng trắng bằng dấu gạch ngang
+        // 5. Chuyển khoảng trắng thành gạch ngang
         text = Regex.Replace(text, @"\s+", "-");
 
-        // 6. Xóa các dấu gạch ngang thừa ở đầu/cuối
+        // 6. QUAN TRỌNG: Gộp nhiều dấu gạch ngang liên tiếp thành 1
+        // Ví dụ: "a---b" -> "a-b"
+        text = Regex.Replace(text, @"-+", "-");
+
+        // 7. Cắt gạch ngang thừa ở đầu và cuối
         return text.Trim('-');
     }
 }

@@ -11,7 +11,7 @@ public interface IProjectService
     Task<ProjectResponseDto> CreateProjectAsync(CreateProjectDto request);
 
     // Hàm lấy danh sách trả về kèm Tổng số bản ghi để phân trang
-    Task<(IEnumerable<ProjectResponseDto> Data, int TotalRecords)> GetPagedProjectsAsync(PaginationFilter filter);
+    Task<(IEnumerable<ProjectResponseDto> Data, int TotalRecords)> GetPagedProjectsAsync(ProjectFilterParams filter);
 
     Task<ProjectResponseDto> GetProjectByIdAsync(Guid id);
 

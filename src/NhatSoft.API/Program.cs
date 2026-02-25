@@ -47,6 +47,10 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 // D. Domain Services (Business Logic)
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<IAccountService, AccountService>(); // Đăng ký AccountService
+builder.Services.AddScoped<IPostService, PostService>();
+builder.Services.AddScoped<ICategoryService, CategoryService>();
+builder.Services.AddScoped<IContactService, ContactService>();
+builder.Services.AddScoped<IProjectImageService, ProjectImageService>();
 
 // E. File Service (CHỌN 1 TRONG 2)
 // Cách 1: Lưu ảnh trên Server (Local)
@@ -130,7 +134,17 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", b => b.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 });
-
+//giới hạn nếu cần
+//thiết, ví dụ chỉ cho phép domain của frontend:
+//builder.Services.AddCors(options =>
+//{
+//    options.AddPolicy("AllowAll", b => b
+//        .WithOrigins("http://localhost:5173", "http://localhost:3000") // Thêm port 3000 của Next.js
+//        .AllowAnyMethod()
+//        .AllowAnyHeader()
+//        .AllowCredentials()); // Tùy chọn nếu có cookie
+//});
+//// Ghi chú: Nếu lúc trước đã dùng AllowAnyOrigin() thì không cần sửa gì thêm.
 var app = builder.Build();
 
 // ============================================

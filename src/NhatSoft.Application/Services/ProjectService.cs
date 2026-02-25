@@ -2,6 +2,7 @@
 using NhatSoft.Application.DTOs.Project;
 using NhatSoft.Application.Interfaces;
 using NhatSoft.Common.Exceptions;
+using NhatSoft.Common.Helpers;
 using NhatSoft.Common.Wrappers;
 using NhatSoft.Domain.Entities;
 using NhatSoft.Domain.Interfaces;
@@ -16,63 +17,122 @@ public class ProjectService(IUnitOfWork unitOfWork, IMapper mapper) : IProjectSe
     // ==========================================================
     public async Task<ProjectResponseDto> CreateProjectAsync(CreateProjectDto request)
     {
-        // 1. Map cơ bản (Name, Description...)
+        // 1. Map cơ bản
         var project = mapper.Map<Project>(request);
 
         // 2. Xử lý TechStack (List<string> -> JSON String)
+        // Nếu bạn dùng DB lưu JSON string thì đoạn này chuẩn.
         if (request.TechStacks != null && request.TechStacks.Any())
         {
             project.TechStackJson = JsonSerializer.Serialize(request.TechStacks);
         }
 
-        // 3. Xử lý Ảnh (List<string> -> List<ProjectImage>)
+        // 3. Xử lý Ảnh (QUAN TRỌNG ĐÃ FIX) 🛠️
         if (request.ImageUrls != null && request.ImageUrls.Any())
         {
-            project.Images = new List<ProjectImage>();
+            project.Images = new List<ProjectImage>(); // Hoặc project.ProjectImages tùy tên trong Entity
+
+            // Nếu client có gửi ThumbnailUrl riêng, dùng nó. Nếu không, lấy ảnh đầu tiên.
+            var thumbUrl = request.ThumbnailUrl;
+            if (string.IsNullOrEmpty(thumbUrl))
+            {
+                thumbUrl = request.ImageUrls.First();
+            }
+
             foreach (var url in request.ImageUrls)
             {
                 project.Images.Add(new ProjectImage
                 {
                     ImageUrl = url,
-                    Caption = project.Name // Caption mặc định là tên dự án
+                    Caption = project.Name,
+                    ProjectId = project.Id, // Gán Id cha (dù EF tự hiểu nhưng gán cho chắc)
+
+                    // 👇 LOGIC QUAN TRỌNG: Xác định ảnh nào là Thumbnail
+                    IsThumbnail = (url == thumbUrl)
                 });
             }
         }
 
-        // 4. Tạo Slug (Nếu chưa có logic tự động thì generate đơn giản từ Name)
-        // project.Slug = GenerateSlug(project.Name); // Bạn có thể thêm hàm helper này sau
+        // 4. Tạo Slug (Dùng Helper extension method bạn đã có) 🛠️
+        // Nếu Slug null hoặc rỗng thì tự generate từ Name
+        if (string.IsNullOrEmpty(project.Slug))
+        {
+            project.Slug = request.Name.ToSlug(); // Hàm ToSlug() từ class StringHelper
+        }
 
-        // 5. Lưu vào DB
+        // 5. Check trùng Slug (Optional - Best Practice)
+        // var existingSlug = await unitOfWork.Projects.GetQueryable().AnyAsync(x => x.Slug == project.Slug);
+        // if (existingSlug) project.Slug += "-" + DateTime.Now.Ticks;
+
+        // 6. Lưu vào DB
         await unitOfWork.Projects.AddAsync(project);
         await unitOfWork.CompleteAsync();
 
-        // 6. Trả về kết quả (Dùng hàm helper để map ngược lại cho đầy đủ)
-        return MapToResponse(project);
+        // 7. Map ngược lại (Nên dùng AutoMapper cho nhất quán)
+        return mapper.Map<ProjectResponseDto>(project);
     }
 
     // ==========================================================
-    // 2. GET LIST (PAGINATION)
+    // 2. GET LIST (PAGINATION + SEARCH)
     // ==========================================================
-    public async Task<(IEnumerable<ProjectResponseDto> Data, int TotalRecords)> GetPagedProjectsAsync(PaginationFilter filter)
+    //  Đổi tham số từ PaginationFilter -> ProjectFilterParams
+    public async Task<(IEnumerable<ProjectResponseDto> Data, int TotalRecords)> GetPagedProjectsAsync(ProjectFilterParams filter)
     {
-        // Lấy tất cả (Nếu data lớn nên dùng IQueryable, tạm thời dùng GetAllAsync của GenericRepo)
-        var allProjects = await unitOfWork.Projects.GetAllAsync();
+        // 1. Lấy dữ liệu
+        // Lưu ý: Đang lấy IEnumerable (Ram), nếu sau này data lớn nên chuyển sang IQueryable (Database)
+        var query = await unitOfWork.Projects.GetAllAsync();
 
-        // Tính tổng số bản ghi
-        var totalRecords = allProjects.Count();
+        // 2. === LOGIC TÌM KIẾM TỪ KHÓA (KEYWORD) ===
+        if (!string.IsNullOrEmpty(filter.Keyword))
+        {
+            string keyword = filter.Keyword.ToLower().Trim();
 
-        // Phân trang trên RAM (Skip/Take)
-        var pagedProjects = allProjects
-                            .OrderByDescending(p => p.CreatedAt)
+            query = query.Where(p =>
+                (p.Name != null && p.Name.ToLower().Contains(keyword)) ||
+                (p.Slug != null && p.Slug.ToLower().Contains(keyword)) ||
+                // 👇 Sửa lại ClientName: Cần check null và ToLower để tìm không phân biệt hoa thường
+                (p.ClientName != null && p.ClientName.ToLower().Contains(keyword)) ||
+                (p.TechStackJson != null && p.TechStackJson.ToLower().Contains(keyword))
+            );
+        }
+
+        // 3. === LOGIC LỌC NÂNG CAO (MỚI) ===
+
+        // Lọc theo Nổi bật
+        if (filter.IsFeatured.HasValue)
+        {
+            query = query.Where(p => p.IsFeatured == filter.IsFeatured.Value);
+        }
+
+        // Lọc theo Khoảng thời gian (StartDate)
+        if (filter.FromDate.HasValue)
+        {
+            query = query.Where(p => p.StartDate >= filter.FromDate.Value);
+        }
+        if (filter.ToDate.HasValue)
+        {
+            query = query.Where(p => p.StartDate <= filter.ToDate.Value);
+        }
+
+        // 4. Tính tổng số bản ghi (Sau khi lọc xong xuôi)
+        var totalRecords = query.Count();
+
+        // 5. Phân trang & Sắp xếp
+        var pagedProjects = query
+                            .OrderByDescending(p => p.IsFeatured) // Ưu tiên nổi bật lên đầu
+                            .ThenByDescending(p => p.CreatedAt)   // Sau đó mới đến ngày tạo
                             .Skip((filter.PageNumber - 1) * filter.PageSize)
                             .Take(filter.PageSize)
                             .ToList();
 
-        // Map sang DTO (Dùng hàm helper để xử lý JSON và Image)
+        // 6. Map sang DTO
         var resultDto = pagedProjects.Select(MapToResponse);
 
         return (resultDto, totalRecords);
     }
+
+
+
 
     // ==========================================================
     // 3. GET BY ID
