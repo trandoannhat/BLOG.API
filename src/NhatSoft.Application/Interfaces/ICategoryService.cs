@@ -10,6 +10,9 @@ public interface ICategoryService
     // 2. Lấy tất cả (Dùng cho Dropdown chọn danh mục khi viết bài)
     Task<IEnumerable<CategoryDto>> GetAllAsync();
 
+    // --- THÊM MỚI: Lấy danh mục dạng cây ---
+    Task<IEnumerable<CategoryDto>> GetCategoryTreeAsync();
+
     // 3. Các hàm CRUD cơ bản
     Task<CategoryDto> GetByIdAsync(Guid id);
     Task<CategoryDto> GetBySlugAsync(string slug); // Dùng cho Frontend hiển thị bài theo danh mục

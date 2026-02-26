@@ -17,6 +17,11 @@ public class CategoryDto
     public int PostCount { get; set; }
 
     public DateTime CreatedAt { get; set; }
+
+    // --- THÊM MỚI: Phục vụ danh mục cha con ---
+    public Guid? ParentId { get; set; }
+    public List<CategoryDto> Children { get; set; } = new();
+    // ------------------------------------------
 }
 
 // ==========================================
@@ -31,6 +36,8 @@ public class CreateCategoryDto
     public string? Description { get; set; }
 
     // Slug sẽ tự sinh từ Name -> Không cần gửi lên
+    // --- THÊM MỚI ---
+    public Guid? ParentId { get; set; }
 }
 
 // ==========================================

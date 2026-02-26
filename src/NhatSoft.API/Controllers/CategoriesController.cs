@@ -17,7 +17,15 @@ namespace NhatSoft.API.Controllers
             var result = await categoryService.GetAllAsync();
             return Ok(new { Data = result });
         }
-
+        // --- THÊM MỚI: GET TREE (Lấy danh mục dạng cây cha con) ---
+        // API: GET /api/categories/tree
+        [HttpGet("tree")]
+        public async Task<IActionResult> GetTree()
+        {
+            var result = await categoryService.GetCategoryTreeAsync();
+            return Ok(new { Data = result });
+        }
+        // -----------------------------------------------------------
         // 2. GET PAGED (Table Admin)
         // API: GET /api/categories?PageNumber=1&Keyword=...
         [HttpGet]

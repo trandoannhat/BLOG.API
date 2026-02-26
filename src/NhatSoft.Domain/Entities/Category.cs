@@ -11,4 +11,11 @@ public class Category : AuditableEntity
 
     // Quan hệ: 1 Category có nhiều Post
     public ICollection<Post> Posts { get; set; } = new List<Post>();
+
+    // Cột mới thêm vào
+    public Guid? ParentId { get; set; }
+
+    // Navigation properties cho EF Core
+    public virtual Category ParentCategory { get; set; }
+    public virtual ICollection<Category> ChildCategories { get; set; } = new List<Category>();
 }

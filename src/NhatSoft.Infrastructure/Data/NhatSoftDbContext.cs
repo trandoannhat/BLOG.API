@@ -89,6 +89,14 @@ public class NhatSoftDbContext(DbContextOptions<NhatSoftDbContext> options) : Db
         {
             e.HasIndex(x => x.Slug).IsUnique();
             e.Property(x => x.Name).IsRequired().HasMaxLength(100);
+
+            
+
+            // CHỈ CẦN ĐOẠN NÀY ĐỂ EF CORE HIỂU QUAN HỆ CHA - CON
+            e.HasOne(c => c.ParentCategory)
+             .WithMany(c => c.ChildCategories)
+             .HasForeignKey(c => c.ParentId)
+             .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<Post>(e =>
