@@ -127,6 +127,7 @@ public class PostService(IUnitOfWork unitOfWork, IMapper mapper) : IPostService
         var post = await unitOfWork.Posts.GetAllQueryable()
             .Include(p => p.Category)
             .Include(p => p.Author)
+            .Where(p => p.IsPublished == true) // --- THÊM DÒNG NÀY để loại bản nháp---
             .FirstOrDefaultAsync(p => p.Slug == slug);
 
         // 2. Kiểm tra tồn tại

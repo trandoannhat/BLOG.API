@@ -12,6 +12,7 @@ public interface ICategoryService
 
     // --- THÊM MỚI: Lấy danh mục dạng cây ---
     Task<IEnumerable<CategoryDto>> GetCategoryTreeAsync();
+   
 
     // 3. Các hàm CRUD cơ bản
     Task<CategoryDto> GetByIdAsync(Guid id);
