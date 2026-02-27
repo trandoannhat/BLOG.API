@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using NhatSoft.Application.DTOs.Blog;
 using NhatSoft.Application.Interfaces;
 using NhatSoft.Common.Exceptions;
@@ -13,7 +14,8 @@ public class CategoryService(IUnitOfWork unitOfWork, IMapper mapper) : ICategory
     public async Task<(IEnumerable<CategoryDto> Data, int TotalRecords)> GetPagedCategoriesAsync(CategoryFilterParams filter)
     {
         // Lấy Queryable để tối ưu hiệu suất (nếu Repo hỗ trợ), ở đây giả sử dùng GetAllAsync trả về IEnumerable
-        var query = await unitOfWork.Categories.GetAllAsync();
+        //var query = await unitOfWork.Categories.GetAllAsync();
+        var query = unitOfWork.Categories.GetAllQueryable().Include(c => c.Posts).AsQueryable();
 
         // --- Filter ---
         if (!string.IsNullOrEmpty(filter.Keyword))
@@ -42,12 +44,26 @@ public class CategoryService(IUnitOfWork unitOfWork, IMapper mapper) : ICategory
         var categories = await unitOfWork.Categories.GetAllAsync();
         return mapper.Map<IEnumerable<CategoryDto>>(categories.OrderBy(c => c.Name));
     }
-    // --- THÊM MỚI 1: LẤY DANH MỤC DẠNG CÂY ---
+    // --- THÊM MỚI 1: LẤY DANH MỤC DẠNG CÂY (ĐÃ SỬA ĐỂ ĐẾM POST) ---
     public async Task<IEnumerable<CategoryDto>> GetCategoryTreeAsync()
     {
-        var categories = await unitOfWork.Categories.GetAllAsync();
+        // 1. Dùng GetAllQueryable để Include thêm Posts
+        var categories = await unitOfWork.Categories.GetAllQueryable()
+            .Include(c => c.Posts)
+            .ToListAsync();
+
         var dtos = mapper.Map<List<CategoryDto>>(categories.OrderBy(c => c.Name));
 
+        // 2. Cập nhật lại PostCount (Chỉ đếm những bài đã IsPublished = true)
+        foreach (var dto in dtos)
+        {
+            var entity = categories.First(c => c.Id == dto.Id);
+            dto.PostCount = entity.Posts != null
+                ? entity.Posts.Count(p => p.IsPublished == true)
+                : 0;
+        }
+
+        // 3. Dựng cây (Giữ nguyên logic cực mượt của bạn)
         var lookup = dtos.ToDictionary(c => c.Id);
         var tree = new List<CategoryDto>();
 
