@@ -75,6 +75,7 @@ public class AccountService(
             Id = user.Id.ToString(),
             UserName = user.FullName,
             Email = user.Email,
+            AvatarUrl = user.AvatarUrl,
             Roles = new List<string> { user.Role.ToString() },
             IsVerified = true,
             JWToken = token

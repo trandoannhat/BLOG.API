@@ -8,4 +8,5 @@ public class AuthenticationResponse
     public List<string> Roles { get; set; } = new();
     public bool IsVerified { get; set; }
     public string JWToken { get; set; } = string.Empty; // Cái quan trọng nhất
+    public string? AvatarUrl { get; set; }
 }
