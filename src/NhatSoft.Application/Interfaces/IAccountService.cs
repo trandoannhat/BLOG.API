@@ -10,4 +10,7 @@ public interface IAccountService
 
     // Hàm đăng ký user mới
     Task<ApiResponse<string>> RegisterAsync(RegisterRequest request);
+
+    Task<ApiResponse<UserProfileDto>> GetProfileAsync(string userId);
+    Task<ApiResponse<string>> UpdateProfileAsync(string userId, UpdateProfileRequest request);
 }

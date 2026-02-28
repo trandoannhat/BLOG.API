@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using NhatSoft.Application.DTOs.Account;
 using NhatSoft.Application.Interfaces;
 
@@ -36,6 +37,29 @@ namespace NhatSoft.API.Controllers
             }
 
             return Ok(response);
+        }
+
+        [HttpGet("profile")]
+        [Authorize] // Bắt buộc phải có token
+        public async Task<IActionResult> GetProfile()
+        {
+            // Lấy ID từ Token mà JWT đã giải mã
+            var userId = User.FindFirst("id")?.Value;
+            if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+            var response = await accountService.GetProfileAsync(userId);
+            return response.Success ? Ok(response) : BadRequest(response);
+        }
+
+        [HttpPut("profile")]
+        [Authorize]
+        public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
+        {
+            var userId = User.FindFirst("id")?.Value;
+            if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+            var response = await accountService.UpdateProfileAsync(userId, request);
+            return response.Success ? Ok(response) : BadRequest(response);
         }
     }
 }

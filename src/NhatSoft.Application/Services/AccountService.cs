@@ -116,4 +116,53 @@ public class AccountService(
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
+    public async Task<ApiResponse<UserProfileDto>> GetProfileAsync(string userId)
+    {
+        var user = (await unitOfWork.Users.FindAsync(u => u.Id.ToString() == userId)).FirstOrDefault();
+        if (user == null) return new ApiResponse<UserProfileDto>("Không tìm thấy người dùng.");
+
+        var profile = new UserProfileDto
+        {
+            Id = user.Id.ToString(),
+            FullName = user.FullName,
+            Email = user.Email,
+            PhoneNumber = user.PhoneNumber,
+            AvatarUrl = user.AvatarUrl
+        };
+        return new ApiResponse<UserProfileDto>(profile, "Thành công");
+    }
+
+    public async Task<ApiResponse<string>> UpdateProfileAsync(string userId, UpdateProfileRequest request)
+    {
+        var user = (await unitOfWork.Users.FindAsync(u => u.Id.ToString() == userId)).FirstOrDefault();
+
+        //  ĐÃ SỬA: Dùng Object Initializer để báo lỗi rõ ràng, dẹp luôn Constructor
+        if (user == null)
+        {
+            return new ApiResponse<string>
+            {
+                Success = false,
+                Message = "Không tìm thấy người dùng.",
+                Errors = new List<string> { "Không tìm thấy người dùng." },
+                Description = "NhatDev - Error"
+            };
+        }
+
+        // Cập nhật thông tin
+        user.FullName = request.FullName;
+        user.PhoneNumber = request.PhoneNumber;
+        user.AvatarUrl = request.AvatarUrl;
+
+        unitOfWork.Users.Update(user);
+        await unitOfWork.CompleteAsync();
+
+        // Dùng Object Initializer cho trường hợp thành công
+        return new ApiResponse<string>
+        {
+            Success = true,
+            Data = user.Id.ToString(),
+            Message = "Cập nhật thành công",
+            Description = "NhatDev - UpdateProfile"
+        };
+    }
 }
