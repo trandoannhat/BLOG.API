@@ -19,6 +19,7 @@ public class UnitOfWork : IUnitOfWork
     private IGenericRepository<Post>? _posts;
     private IGenericRepository<Contact>? _contacts;
     private IGenericRepository<ProjectImage>? _projectImages;
+    private IGenericRepository<Donation>? _donations;
     public UnitOfWork(NhatSoftDbContext context)
     {
         _context = context;
@@ -49,13 +50,16 @@ public class UnitOfWork : IUnitOfWork
     //  IMPLEMENT PROJECT IMAGES
     public IGenericRepository<ProjectImage> ProjectImages =>
         _projectImages ??= new GenericRepository<ProjectImage>(_context);
+    //  IMPLEMENT PROPERTY CHO DONATION
+    public IGenericRepository<Donation> Donations =>
+        _donations ??= new GenericRepository<Donation>(_context);
     // --- 3. CORE METHODS ---
     public async Task<int> CompleteAsync()
     {
         return await _context.SaveChangesAsync();
     }
 
-    // --- 4. TRANSACTION LOGIC (Giữ nguyên) ---
+    // --- 4. TRANSACTION LOGIC  ---
     public async Task BeginTransactionAsync()
     {
         if (_currentTransaction != null) return;

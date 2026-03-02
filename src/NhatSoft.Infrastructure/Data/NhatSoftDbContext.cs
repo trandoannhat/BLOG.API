@@ -14,6 +14,7 @@ public class NhatSoftDbContext(DbContextOptions<NhatSoftDbContext> options) : Db
     public DbSet<Category> Categories { get; set; }
     public DbSet<Post> Posts { get; set; }
     public DbSet<Contact> Contacts { get; set; }
+    public DbSet<Donation> Donations { get; set; }
 
     // --- CẤU HÌNH TỰ ĐỘNG NGÀY GIỜ & SOFT DELETE ---
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -54,6 +55,11 @@ public class NhatSoftDbContext(DbContextOptions<NhatSoftDbContext> options) : Db
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        // --- Config Donation ---
+        modelBuilder.Entity<Donation>().Property(d => d.DonorName).HasMaxLength(100);
+        modelBuilder.Entity<Donation>().Property(d => d.Message).HasMaxLength(500);
+        modelBuilder.Entity<Donation>().Property(d => d.PaymentMethod).HasMaxLength(50);
+
 
         // --- Config User ---
         modelBuilder.Entity<User>(e =>

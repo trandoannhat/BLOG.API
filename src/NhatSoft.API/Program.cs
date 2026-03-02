@@ -1,16 +1,11 @@
 ﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using NhatSoft.API.Middlewares;
-using NhatSoft.Application.Interfaces;
-using NhatSoft.Application.Services;
+using NhatSoft.Application; // Gọi DI của Application
 using NhatSoft.Application.Settings;
 using NhatSoft.Common.Wrappers;
-using NhatSoft.Domain.Interfaces;
-using NhatSoft.Infrastructure;
-using NhatSoft.Infrastructure.Repositories;
-using NhatSoft.Infrastructure.Services;
+using NhatSoft.Infrastructure; // Gọi DI của Infrastructure
 using System.Text;
 
 // --- QUAN TRỌNG: Bật tính năng timestamp cho PostgreSQL ---
@@ -32,31 +27,14 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
             .Select(x => x.ErrorMessage)
             .ToList();
 
-        return new BadRequestObjectResult(new ApiResponse<string>(errors, "Dữ liệu không hợp lệ"));
+        var response = new ApiResponse<string>(errors, "Dữ liệu không hợp lệ");
+        return new BadRequestObjectResult(response);
     };
 });
 
-// B. Core Services & Infrastructure
-builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
-builder.Services.AddInfrastructure(builder.Configuration); // DbContext nằm trong này
-
-// C. UnitOfWork & Repositories
-builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-// builder.Services.AddScoped<IProjectRepository, ProjectRepository>(); // Không cần thiết nếu đã dùng UnitOfWork, nhưng để cũng không sao
-
-// D. Domain Services (Business Logic)
-builder.Services.AddScoped<IProjectService, ProjectService>();
-builder.Services.AddScoped<IAccountService, AccountService>(); // Đăng ký AccountService
-builder.Services.AddScoped<IPostService, PostService>();
-builder.Services.AddScoped<ICategoryService, CategoryService>();
-builder.Services.AddScoped<IContactService, ContactService>();
-builder.Services.AddScoped<IProjectImageService, ProjectImageService>();
-
-// E. File Service (CHỌN 1 TRONG 2)
-// Cách 1: Lưu ảnh trên Server (Local)
-//builder.Services.AddScoped<IFileService, LocalFileService>();
-// Cách 2: Lưu ảnh trên Cloudinary (Bỏ comment dòng dưới nếu muốn dùng Cloud)
-builder.Services.AddScoped<IFileService, CloudinaryFileService>();
+// B. GỌI CÁC TẦNG KIẾN TRÚC VÀO ĐÂY (Siêu gọn gàng)
+builder.Services.AddApplicationLayer();
+builder.Services.AddInfrastructure(builder.Configuration);
 
 // ============================================
 // 2. CONFIG AUTHENTICATION (JWT)
@@ -96,14 +74,9 @@ builder.Services.AddSwaggerGen(options =>
         Title = "NhatSoft API Core",
         Version = "v1",
         Description = "Hệ thống Backend quản lý Blog & Portfolio",
-        Contact = new Microsoft.OpenApi.Models.OpenApiContact
-        {
-            Name = "NhatSoft Support",
-            Email = "contact@nhatsoft.com"
-        }
+        Contact = new Microsoft.OpenApi.Models.OpenApiContact { Name = "NhatSoft", Email = "contact@nhatsoft.com" }
     });
 
-    // Cấu hình nút Ổ khóa (Authorize)
     options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -134,27 +107,15 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", b => b.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 });
-//giới hạn nếu cần
-//thiết, ví dụ chỉ cho phép domain của frontend:
-//builder.Services.AddCors(options =>
-//{
-//    options.AddPolicy("AllowAll", b => b
-//        .WithOrigins("http://localhost:5173", "http://localhost:3000") // Thêm port 3000 của Next.js
-//        .AllowAnyMethod()
-//        .AllowAnyHeader()
-//        .AllowCredentials()); // Tùy chọn nếu có cookie
-//});
-//// Ghi chú: Nếu lúc trước đã dùng AllowAnyOrigin() thì không cần sửa gì thêm.
+
 var app = builder.Build();
 
 // ============================================
-// 4. MIDDLEWARE PIPELINE (Thứ tự cực quan trọng)
+// 4. MIDDLEWARE PIPELINE
 // ============================================
 
-// 1. Error Handler (Luôn đầu tiên)
 app.UseMiddleware<ErrorHandlerMiddleware>();
 
-// 2. Swagger
 if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
 {
     app.UseSwagger();
@@ -166,18 +127,13 @@ if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
     });
 }
 
-// 3. Static Files (Để xem ảnh)
 app.UseStaticFiles();
-
-// 4. HTTPS & CORS
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
 
-// 5. AUTHENTICATION & AUTHORIZATION (Phải đúng thứ tự này)
-app.UseAuthentication(); // <--- ĐÃ THÊM: Kiểm tra "Bạn là ai?" (Check Token)
-app.UseAuthorization();  // <--- Kiểm tra "Bạn được làm gì?" (Check Role)
+app.UseAuthentication();
+app.UseAuthorization();
 
-// 6. Map Controllers
 app.MapControllers();
 
 app.Run();

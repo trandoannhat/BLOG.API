@@ -11,6 +11,8 @@ public interface IUnitOfWork : IDisposable
     IGenericRepository<Post> Posts { get; }
     IGenericRepository<Contact> Contacts { get; }
     IGenericRepository<ProjectImage> ProjectImages { get; }
+    IGenericRepository<Donation> Donations { get; }
+
     // Sau này thêm các repo khác nếu phát sinh 
     Task<int> CompleteAsync(); // SaveChanges
 
