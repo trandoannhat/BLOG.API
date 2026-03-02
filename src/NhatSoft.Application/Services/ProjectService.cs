@@ -126,57 +126,66 @@ public class ProjectService(IUnitOfWork unitOfWork, IMapper mapper) : IProjectSe
         return MapToResponse(project);
     }
 
+    // ==========================================================
+    // 4. UPDATE PROJECT (GIẢI PHÁP TÁCH BIỆT - AN TOÀN 100%)
+    // ==========================================================
     public async Task UpdateProjectAsync(Guid id, UpdateProjectDto request)
     {
-        // 👇 Include Images để chuẩn bị thay thế ảnh
-        var project = await unitOfWork.Projects.GetAllQueryable()
-                                     .Include(p => p.Images)
-                                     .FirstOrDefaultAsync(p => p.Id == id);
+        // 1. Chỉ lấy Project, KHÔNG CẦN Include(Images) để tránh EF Core bị "loạn" trạng thái
+        var project = await unitOfWork.Projects.GetByIdAsync(id);
         if (project == null)
             throw new NotFoundException("Không tìm thấy dự án để sửa");
 
-        // Map đè
-        mapper.Map(request, project);
+        // 2. Gán tay các thông tin cơ bản
+        project.Name = request.Name;
+        project.ClientName = request.ClientName ?? string.Empty;
+        project.Description = request.Description ?? string.Empty;
+        project.Content = request.Content ?? string.Empty;
+        project.LiveDemoUrl = request.LiveDemoUrl;
+        project.SourceCodeUrl = request.SourceCodeUrl;
+        project.StartDate = request.StartDate;
+        project.CompletedDate = request.CompletedDate;
+        project.IsFeatured = request.IsFeatured;
+        project.Slug = string.IsNullOrEmpty(request.Slug) ? request.Name.ToSlug() : request.Slug;
 
         if (request.TechStacks != null)
         {
             project.TechStackJson = JsonSerializer.Serialize(request.TechStacks);
         }
 
-        // TỐI ƯU CẬP NHẬT ẢNH TRÁNH LỖI ORPHANED
+        // 3. XỬ LÝ ẢNH ĐỘC LẬP TRỰC TIẾP QUA REPOSITORY
         if (request.ImageUrls != null)
         {
-            // Xóa ảnh cũ trong CSDL
-            if (project.Images != null && project.Images.Any())
+            // a. Query trực tiếp các ảnh cũ trong DB thuộc Project này và XÓA
+            var oldImages = await unitOfWork.ProjectImages.GetAllQueryable()
+                                            .Where(i => i.ProjectId == id)
+                                            .ToListAsync();
+            foreach (var img in oldImages)
             {
-                unitOfWork.ProjectImages.DeleteRange(project.Images);
+                unitOfWork.ProjectImages.Delete(img);
             }
 
-            // Tạo list ảnh mới
-            project.Images = new List<ProjectImage>();
-
-            var thumbUrl = request.ThumbnailUrl;
-            if (string.IsNullOrEmpty(thumbUrl) && request.ImageUrls.Any())
-            {
-                thumbUrl = request.ImageUrls.First();
-            }
+            // b. THÊM ảnh mới trực tiếp vào Repository
+            var thumbUrl = string.IsNullOrEmpty(request.ThumbnailUrl) && request.ImageUrls.Any()
+                            ? request.ImageUrls.First()
+                            : request.ThumbnailUrl;
 
             foreach (var url in request.ImageUrls)
             {
-                project.Images.Add(new ProjectImage
+                await unitOfWork.ProjectImages.AddAsync(new ProjectImage
                 {
                     ImageUrl = url,
-                    ProjectId = id,
-                    Caption = project.Name,
+                    Caption = request.Name,
+                    ProjectId = id, // Gán cứng Khóa ngoại để DB hiểu ngay lập tức
                     IsThumbnail = (url == thumbUrl)
                 });
             }
         }
 
+        // 4. Báo cho EF Core lưu lại mọi thay đổi (Update Project, Delete Ảnh cũ, Insert Ảnh mới)
         unitOfWork.Projects.Update(project);
         await unitOfWork.CompleteAsync();
     }
-
     public async Task DeleteProjectAsync(Guid id)
     {
         var project = await unitOfWork.Projects.GetByIdAsync(id);

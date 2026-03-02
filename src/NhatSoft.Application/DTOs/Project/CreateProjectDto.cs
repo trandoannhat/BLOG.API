@@ -9,6 +9,7 @@ public class CreateProjectDto
     [MaxLength(200, ErrorMessage = "Tên dự án tối đa 200 ký tự")]
     public string Name { get; set; } = string.Empty;
 
+    public string? Slug { get; set; }
     // 2. Khách hàng
     [MaxLength(100, ErrorMessage = "Tên khách hàng tối đa 100 ký tự")]
     public string ClientName { get; set; } = string.Empty;
