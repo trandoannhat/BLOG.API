@@ -19,4 +19,6 @@ public interface IDonationService
     //mục tiêu donate
 
     Task<DonationStatsDto> GetDonationStatsAsync();
+
+    Task<bool> UpdateDonationTargetAsync(decimal newTarget);
 }

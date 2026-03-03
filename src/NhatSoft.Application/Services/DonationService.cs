@@ -93,16 +93,17 @@ public class DonationService(IUnitOfWork unitOfWork, IMapper mapper) : IDonation
         unitOfWork.Donations.Delete(donation);
         await unitOfWork.CompleteAsync();
     }
+
     public async Task<DonationStatsDto> GetDonationStatsAsync()
     {
-        // Chỉ tính những giao dịch ĐÃ DUYỆT (IsConfirmed = true)
+        // 1. Lấy tổng tiền và danh sách (Đã duyệt)
         var approvedDonations = unitOfWork.Donations.GetAllQueryable()
                                           .AsNoTracking()
                                           .Where(d => d.IsConfirmed);
 
         var totalRaised = await approvedDonations.SumAsync(d => d.Amount);
 
-        // Group By theo Tên để tìm Top Supporter (Bỏ qua "Ẩn danh" nếu  muốn, ở đây tôi lấy hết)
+        // 2. Tìm Top Supporter
         var topSupporters = await approvedDonations
             .GroupBy(d => d.DonorName)
             .Select(g => new TopSupporterDto
@@ -114,11 +115,50 @@ public class DonationService(IUnitOfWork unitOfWork, IMapper mapper) : IDonation
             .Take(5) // Lấy Top 5
             .ToListAsync();
 
+        // 3. Đọc TargetAmount từ DB (Bảng SystemSettings)
+        var targetSetting = await unitOfWork.SystemSettings.GetAllQueryable()
+                                            .AsNoTracking()
+                                            .FirstOrDefaultAsync(s => s.Key == "DonationTarget");
+
+        decimal targetAmount = 2000000; // Giá trị mặc định nếu trong DB chưa có
+        if (targetSetting != null && decimal.TryParse(targetSetting.Value, out var parsedValue))
+        {
+            targetAmount = parsedValue;
+        }
+
         return new DonationStatsDto
         {
             TotalRaised = totalRaised,
-            TargetAmount = 1000000, // Bạn có thể lưu DB sau này, tạm fix cứng 1 củ
+            TargetAmount = targetAmount, // Đã lấy từ DB linh hoạt
             TopSupporters = topSupporters
         };
+    }
+
+    // --- HÀM MỚI: DÙNG ĐỂ ADMIN LƯU MỤC TIÊU MỚI ---
+    public async Task<bool> UpdateDonationTargetAsync(decimal newTarget)
+    {
+        var targetSetting = await unitOfWork.SystemSettings.GetAllQueryable()
+                                            .FirstOrDefaultAsync(s => s.Key == "DonationTarget");
+
+        if (targetSetting == null)
+        {
+            // Nếu chưa tồn tại trong DB thì tạo mới
+            targetSetting = new SystemSetting
+            {
+                Key = "DonationTarget",
+                Value = newTarget.ToString(),
+                Description = "Mục tiêu donate duy trì Server (VNĐ)"
+            };
+            await unitOfWork.SystemSettings.AddAsync(targetSetting);
+        }
+        else
+        {
+            // Nếu có rồi thì cập nhật Value
+            targetSetting.Value = newTarget.ToString();
+            unitOfWork.SystemSettings.Update(targetSetting);
+        }
+
+        // Gọi CompleteAsync() thay vì SaveChangesAsync() theo chuẩn IUnitOfWork của bạn
+        return await unitOfWork.CompleteAsync() > 0;
     }
 }

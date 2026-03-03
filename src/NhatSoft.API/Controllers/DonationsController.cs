@@ -78,4 +78,20 @@ public class DonationsController(IDonationService donationService) : ControllerB
         var data = await donationService.GetDonationStatsAsync();
         return Ok(new ApiResponse<DonationStatsDto>(data, "Lấy thống kê thành công"));
     }
+    // Nhớ mở khóa [Authorize] sau này để chỉ Admin mới sửa được tiền nhé
+    // [Authorize(Roles = "Admin")] 
+    [HttpPut("target-amount")]
+    [Authorize]
+    public async Task<IActionResult> UpdateTargetAmount([FromBody] UpdateTargetDto request)
+    {
+        if (request.TargetAmount <= 0)
+            return BadRequest(new ApiResponse<string>(string.Empty, "Số tiền mục tiêu phải lớn hơn 0"));
+
+        var result = await donationService.UpdateDonationTargetAsync(request.TargetAmount);
+
+        if (result)
+            return Ok(new ApiResponse<string>(string.Empty, "Cập nhật mục tiêu ủng hộ thành công!"));
+
+        return BadRequest(new ApiResponse<string>(string.Empty, "Cập nhật thất bại. Vui lòng thử lại."));
+    }
 }

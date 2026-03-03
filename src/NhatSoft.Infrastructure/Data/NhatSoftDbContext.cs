@@ -15,6 +15,7 @@ public class NhatSoftDbContext(DbContextOptions<NhatSoftDbContext> options) : Db
     public DbSet<Post> Posts { get; set; }
     public DbSet<Contact> Contacts { get; set; }
     public DbSet<Donation> Donations { get; set; }
+    public DbSet<SystemSetting> SystemSettings { get; set; }
 
     // --- CẤU HÌNH TỰ ĐỘNG NGÀY GIỜ & SOFT DELETE ---
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -55,6 +56,23 @@ public class NhatSoftDbContext(DbContextOptions<NhatSoftDbContext> options) : Db
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // Cấu hình bảng SystemSetting
+        modelBuilder.Entity<SystemSetting>()
+            .HasIndex(x => x.Key)
+            .IsUnique(); // Đảm bảo Key không bị trùng
+
+        // Tự động Seed dữ liệu mặc định khi chạy Migration
+        modelBuilder.Entity<SystemSetting>().HasData(
+            new SystemSetting
+            {
+                Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                Key = "DonationTarget",
+                Value = "2000000",
+                Description = "Mục tiêu donate VNĐ"
+            }
+        );
+
         // --- Config Donation ---
         modelBuilder.Entity<Donation>().Property(d => d.DonorName).HasMaxLength(100);
         modelBuilder.Entity<Donation>().Property(d => d.Message).HasMaxLength(500);
