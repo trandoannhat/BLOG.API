@@ -93,4 +93,32 @@ public class DonationService(IUnitOfWork unitOfWork, IMapper mapper) : IDonation
         unitOfWork.Donations.Delete(donation);
         await unitOfWork.CompleteAsync();
     }
+    public async Task<DonationStatsDto> GetDonationStatsAsync()
+    {
+        // Chỉ tính những giao dịch ĐÃ DUYỆT (IsConfirmed = true)
+        var approvedDonations = unitOfWork.Donations.GetAllQueryable()
+                                          .AsNoTracking()
+                                          .Where(d => d.IsConfirmed);
+
+        var totalRaised = await approvedDonations.SumAsync(d => d.Amount);
+
+        // Group By theo Tên để tìm Top Supporter (Bỏ qua "Ẩn danh" nếu  muốn, ở đây tôi lấy hết)
+        var topSupporters = await approvedDonations
+            .GroupBy(d => d.DonorName)
+            .Select(g => new TopSupporterDto
+            {
+                DonorName = string.IsNullOrEmpty(g.Key) ? "Ẩn danh" : g.Key,
+                TotalAmount = g.Sum(d => d.Amount)
+            })
+            .OrderByDescending(x => x.TotalAmount)
+            .Take(5) // Lấy Top 5
+            .ToListAsync();
+
+        return new DonationStatsDto
+        {
+            TotalRaised = totalRaised,
+            TargetAmount = 1000000, // Bạn có thể lưu DB sau này, tạm fix cứng 1 củ
+            TopSupporters = topSupporters
+        };
+    }
 }

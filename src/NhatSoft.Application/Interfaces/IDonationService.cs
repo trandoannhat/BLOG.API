@@ -15,4 +15,8 @@ public interface IDonationService
     Task ToggleApprovalAsync(Guid id);
 
     Task DeleteDonationAsync(Guid id);
+
+    //mục tiêu donate
+
+    Task<DonationStatsDto> GetDonationStatsAsync();
 }

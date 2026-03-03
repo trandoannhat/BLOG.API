@@ -71,4 +71,11 @@ public class DonationsController(IDonationService donationService) : ControllerB
         await donationService.DeleteDonationAsync(id);
         return Ok(new ApiResponse<string>(string.Empty, "Xóa thông tin giao dịch thành công."));
     }
+    [HttpGet("stats")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetStats()
+    {
+        var data = await donationService.GetDonationStatsAsync();
+        return Ok(new ApiResponse<DonationStatsDto>(data, "Lấy thống kê thành công"));
+    }
 }
