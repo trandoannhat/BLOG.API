@@ -1,17 +1,21 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NhatSoft.Application.DTOs.Blog;
 using NhatSoft.Application.Interfaces;
+using NhatSoft.Common.Constants;
 
 namespace NhatSoft.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = AppConstants.Roles.Admin)]
     public class CategoriesController(ICategoryService categoryService) : ControllerBase
     {
         // 1. GET ALL (Dropdown)
         // API: GET /api/categories/all
         [HttpGet("all")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetAllForDropdown()
         {
             var result = await categoryService.GetAllAsync();
@@ -19,6 +23,7 @@ namespace NhatSoft.API.Controllers
         }
         // --- THÊM MỚI: GET TREE (Lấy danh mục dạng cây cha con) ---
         // API: GET /api/categories/tree
+        [AllowAnonymous]
         [HttpGet("tree")]
         public async Task<IActionResult> GetTree()
         {
@@ -28,6 +33,7 @@ namespace NhatSoft.API.Controllers
         // -----------------------------------------------------------
         // 2. GET PAGED (Table Admin)
         // API: GET /api/categories?PageNumber=1&Keyword=...
+        [AllowAnonymous]
         [HttpGet]
         public async Task<IActionResult> GetPaged([FromQuery] CategoryFilterParams filter)
         {
@@ -43,6 +49,7 @@ namespace NhatSoft.API.Controllers
 
         // 3. GET BY ID
         [HttpGet("{id}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetById(Guid id)
         {
             var result = await categoryService.GetByIdAsync(id);
@@ -51,6 +58,7 @@ namespace NhatSoft.API.Controllers
 
         // 4. CREATE
         [HttpPost]
+
         public async Task<IActionResult> Create(CreateCategoryDto request)
         {
             var result = await categoryService.CreateAsync(request);

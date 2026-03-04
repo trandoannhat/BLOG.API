@@ -1,15 +1,19 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NhatSoft.Application.DTOs.Contact;
 using NhatSoft.Application.Interfaces;
+using NhatSoft.Common.Constants;
 
 namespace NhatSoft.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = AppConstants.Roles.Admin)]
     public class ContactsController(IContactService contactService) : ControllerBase
     {
         [HttpPost] // Public: Khách gửi liên hệ
+        [AllowAnonymous] // Mở khóa cho phép Web Next.js gửi liên hệ
         public async Task<IActionResult> SendContact(CreateContactDto request)
         {
             await contactService.CreateAsync(request);

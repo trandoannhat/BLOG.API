@@ -3,13 +3,14 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NhatSoft.Application.DTOs.Blog;
 using NhatSoft.Application.Interfaces;
+using NhatSoft.Common.Constants;
 using System.Security.Claims;
 
 namespace NhatSoft.API.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
-[Authorize] // 🚨 KHÓA TOÀN BỘ CONTROLLER: Bắt buộc đăng nhập với mọi thao tác
+[Authorize(Roles = AppConstants.Roles.Admin)]  // 🚨 KHÓA TOÀN BỘ CONTROLLER: Bắt buộc đăng nhập với mọi thao tác
 public class PostsController(IPostService postService) : ControllerBase
 {
     // ==========================================

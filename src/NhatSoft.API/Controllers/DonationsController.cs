@@ -2,12 +2,14 @@
 using Microsoft.AspNetCore.Mvc;
 using NhatSoft.Application.DTOs.Donation;
 using NhatSoft.Application.Interfaces;
+using NhatSoft.Common.Constants;
 using NhatSoft.Common.Wrappers; // Gọi các class bọc kết quả chuẩn của bạn
 
 namespace NhatSoft.API.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
+[Authorize(Roles = AppConstants.Roles.Admin)]
 public class DonationsController(IDonationService donationService) : ControllerBase
 {
     // ==========================================================
@@ -37,7 +39,7 @@ public class DonationsController(IDonationService donationService) : ControllerB
     // ==========================================================
 
     [HttpGet]
-    [Authorize]
+    
     public async Task<IActionResult> GetPaged([FromQuery] DonationFilterParams filter)
     {
         var (data, totalRecords) = await donationService.GetPagedDonationsAsync(filter);
@@ -55,7 +57,7 @@ public class DonationsController(IDonationService donationService) : ControllerB
     }
 
     [HttpPut("{id}/toggle-approval")]
-    [Authorize]
+   
     public async Task<IActionResult> ToggleApproval(Guid id)
     {
         await donationService.ToggleApprovalAsync(id);
@@ -65,7 +67,7 @@ public class DonationsController(IDonationService donationService) : ControllerB
     }
 
     [HttpDelete("{id}")]
-    [Authorize]
+    
     public async Task<IActionResult> Delete(Guid id)
     {
         await donationService.DeleteDonationAsync(id);
@@ -81,7 +83,7 @@ public class DonationsController(IDonationService donationService) : ControllerB
     // Nhớ mở khóa [Authorize] sau này để chỉ Admin mới sửa được tiền nhé
     // [Authorize(Roles = "Admin")] 
     [HttpPut("target-amount")]
-    [Authorize]
+   
     public async Task<IActionResult> UpdateTargetAmount([FromBody] UpdateTargetDto request)
     {
         if (request.TargetAmount <= 0)

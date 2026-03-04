@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using NhatSoft.Application.DTOs.Project;
 using NhatSoft.Application.Interfaces;
+using NhatSoft.Common.Constants;
 using NhatSoft.Common.Wrappers;
 
 namespace NhatSoft.API.Controllers;
@@ -44,7 +45,7 @@ public class ProjectsController(IProjectService projectService) : BaseApiControl
     // ==========================================
 
     [HttpPost]
-    [Authorize]
+    [Authorize(Roles = AppConstants.Roles.Admin)] // Gọi hằng số từ project Common
     public async Task<IActionResult> Create(CreateProjectDto request)
     {
         var data = await projectService.CreateProjectAsync(request);
@@ -54,7 +55,7 @@ public class ProjectsController(IProjectService projectService) : BaseApiControl
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize]
+    [Authorize(Roles = AppConstants.Roles.Admin)] // Gọi hằng số từ project Common
     public async Task<IActionResult> Update(Guid id, UpdateProjectDto request)
     {
         if (id != request.Id)
@@ -65,7 +66,7 @@ public class ProjectsController(IProjectService projectService) : BaseApiControl
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize]
+    [Authorize(Roles = AppConstants.Roles.Admin)] // Gọi hằng số từ project Common
     public async Task<IActionResult> Delete(Guid id)
     {
         await projectService.DeleteProjectAsync(id);

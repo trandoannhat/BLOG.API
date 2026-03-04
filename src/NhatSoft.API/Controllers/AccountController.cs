@@ -2,30 +2,34 @@
 using Microsoft.AspNetCore.Mvc;
 using NhatSoft.Application.DTOs.Account;
 using NhatSoft.Application.Interfaces;
+using System.Security.Claims;
 
 namespace NhatSoft.API.Controllers
 {
+    // Đừng quên 2 thẻ này (nếu BaseApiController chưa có)
+    [Route("api/[controller]")]
+    [ApiController]
     public class AccountController(IAccountService accountService) : BaseApiController
     {
-        // 1. Đăng nhập
-        // URL: POST /api/Account/authenticate
+        // ==========================================
+        // 1. PUBLIC ENDPOINTS (Không cần Token)
+        // ==========================================
+
         [HttpPost("authenticate")]
         public async Task<IActionResult> AuthenticateAsync(LoginRequest request)
         {
             var response = await accountService.AuthenticateAsync(request);
 
-            // Nếu login thất bại (Succeeded = false) -> Trả về BadRequest (400)
             if (!response.Success)
             {
-                return BadRequest(response); // Trả về lỗi kèm message
+                // Nếu bạn có hàm Error trong BaseApiController
+                return Error(response.Message, "AuthFailed");
+                // Hoặc giữ nguyên BadRequest(response) nếu response đã chuẩn JSON bạn muốn
             }
 
-            // Nếu thành công -> Trả về OK (200) kèm Token
             return Ok(response);
         }
 
-        // 2. Đăng ký
-        // URL: POST /api/Account/register
         [HttpPost("register")]
         public async Task<IActionResult> RegisterAsync(RegisterRequest request)
         {
@@ -39,12 +43,16 @@ namespace NhatSoft.API.Controllers
             return Ok(response);
         }
 
+        // ==========================================
+        // 2. PROTECTED ENDPOINTS (Bắt buộc có Token)
+        // ==========================================
+
         [HttpGet("profile")]
-        [Authorize] // Bắt buộc phải có token
+        [Authorize]
         public async Task<IActionResult> GetProfile()
         {
-            // Lấy ID từ Token mà JWT đã giải mã
-            var userId = User.FindFirst("id")?.Value;
+            // ✅ Đã đồng bộ cách lấy ID an toàn nhất
+            var userId = User.FindFirstValue("id") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userId)) return Unauthorized();
 
             var response = await accountService.GetProfileAsync(userId);
@@ -55,7 +63,8 @@ namespace NhatSoft.API.Controllers
         [Authorize]
         public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
         {
-            var userId = User.FindFirst("id")?.Value;
+            // ✅ Đã đồng bộ cách lấy ID an toàn nhất
+            var userId = User.FindFirstValue("id") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userId)) return Unauthorized();
 
             var response = await accountService.UpdateProfileAsync(userId, request);

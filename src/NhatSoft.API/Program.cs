@@ -109,6 +109,23 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+// ==========================================
+// TỰ ĐỘNG KHỞI TẠO DỮ LIỆU MẪU (DATA SEEDING)
+// ==========================================
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        // Chạy hàm tạo Admin
+        await NhatSoft.API.Extensions.DataSeeder.SeedAdminUserAsync(services);
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, " Có lỗi xảy ra trong quá trình Seed Data.");
+    }
+}
 
 // ============================================
 // 4. MIDDLEWARE PIPELINE
