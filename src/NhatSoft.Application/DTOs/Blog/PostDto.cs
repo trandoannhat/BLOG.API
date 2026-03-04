@@ -17,6 +17,7 @@ public class PostDto
     // Thông tin Category (Flatten ra cho dễ dùng ở FE)
     public Guid CategoryId { get; set; }
     public string CategoryName { get; set; }
+    public string CategorySlug { get; set; }
 
     // Thông tin Tác giả
     public Guid AuthorId { get; set; }

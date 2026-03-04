@@ -39,6 +39,7 @@ public class BlogProfile : Profile
         CreateMap<Post, PostDto>()
             // Làm phẳng (Flatten) dữ liệu: Lấy tên Category thay vì trả về cả object
             .ForMember(dest => dest.CategoryName, opt => opt.MapFrom(src => src.Category != null ? src.Category.Name : "Chưa phân loại"))
+            .ForMember(dest => dest.CategorySlug, opt => opt.MapFrom(src => src.Category.Slug))
 
             // Lấy tên Tác giả
             .ForMember(dest => dest.AuthorName, opt => opt.MapFrom(src => src.Author != null ? src.Author.FullName : "Ẩn danh")) // Giả sử User có FullName
