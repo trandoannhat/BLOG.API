@@ -83,6 +83,7 @@ public class PostService(IUnitOfWork unitOfWork, IMapper mapper) : IPostService
     }
 
     // 2. CREATE
+    // 2. CREATE
     public async Task<PostDto> CreatePostAsync(CreatePostDto request, Guid authorId)
     {
         // Check Category tồn tại
@@ -90,13 +91,20 @@ public class PostService(IUnitOfWork unitOfWork, IMapper mapper) : IPostService
         if (category == null) throw new NotFoundException("Danh mục không tồn tại");
 
         var post = mapper.Map<Post>(request);
-
-        // --- XỬ LÝ LOGIC ---
         post.AuthorId = authorId;
 
-        // Tạo Slug (Dùng thư viện hoặc Helper)
-        post.Slug = post.Title.ToSlug(); ;//SlugHelper.GenerateSlug(post.Title);
-        // TODO: Check trùng slug trong DB, nếu trùng thì thêm -1, -2...
+        // --- TẠO SLUG VÀ XỬ LÝ TRÙNG LẶP ---
+        string baseSlug = post.Title.ToSlug(); // Gọi Helper lọc từ nối
+        string finalSlug = baseSlug;
+        int counter = 1;
+
+        // Vòng lặp check trùng Slug trong Database
+        while (await unitOfWork.Posts.GetAllQueryable().AnyAsync(p => p.Slug == finalSlug))
+        {
+            finalSlug = $"{baseSlug}-{counter}";
+            counter++;
+        }
+        post.Slug = finalSlug;
 
         // Xử lý ngày đăng
         if (post.IsPublished)
@@ -111,6 +119,7 @@ public class PostService(IUnitOfWork unitOfWork, IMapper mapper) : IPostService
     }
 
     // 3. UPDATE
+    // 3. UPDATE
     public async Task UpdatePostAsync(UpdatePostDto request)
     {
         var post = await unitOfWork.Posts.GetByIdAsync(request.Id);
@@ -119,8 +128,20 @@ public class PostService(IUnitOfWork unitOfWork, IMapper mapper) : IPostService
         // Map dữ liệu mới vào entity cũ
         mapper.Map(request, post);
 
-        // Cập nhật Slug nếu Title đổi (Tùy nghiệp vụ, thường thì hạn chế đổi slug vì hỏng SEO)
-        // post.Slug = SlugHelper.GenerateSlug(post.Title);
+        // --- CẬP NHẬT LẠI SLUG KHI LƯU ---
+        // (Bạn mở bài cũ lên bấm Lưu là nó tự chạy qua bộ lọc mới)
+        string baseSlug = post.Title.ToSlug();
+        string finalSlug = baseSlug;
+        int counter = 1;
+
+        // Check trùng slug (Lưu ý: Phải trừ chính ID của bài viết hiện tại ra)
+        while (await unitOfWork.Posts.GetAllQueryable()
+               .AnyAsync(p => p.Slug == finalSlug && p.Id != post.Id))
+        {
+            finalSlug = $"{baseSlug}-{counter}";
+            counter++;
+        }
+        post.Slug = finalSlug;
 
         // Logic ngày đăng: Nếu trước đó chưa đăng, giờ mới đăng -> Set ngày
         if (post.IsPublished && post.PublishedAt == null)
@@ -128,7 +149,7 @@ public class PostService(IUnitOfWork unitOfWork, IMapper mapper) : IPostService
             post.PublishedAt = DateTime.UtcNow;
         }
 
-        // Nếu un-publish -> Xóa ngày đăng? Tùy nghiệp vụ
+        // Nếu un-publish -> Xóa ngày đăng
         if (!post.IsPublished)
         {
             post.PublishedAt = null;

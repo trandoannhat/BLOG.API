@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using NhatSoft.Application.DTOs.Blog;
 using NhatSoft.Application.Interfaces;
 using NhatSoft.Common.Exceptions;
+using NhatSoft.Common.Helpers;
 using NhatSoft.Domain.Entities;
 using NhatSoft.Domain.Interfaces;
 
@@ -102,6 +103,7 @@ public class CategoryService(IUnitOfWork unitOfWork, IMapper mapper) : ICategory
     }
 
     // 5. TẠO MỚI
+    // 5. TẠO MỚI
     public async Task<CategoryDto> CreateAsync(CreateCategoryDto request)
     {
         // Check trùng tên (Optional)
@@ -110,26 +112,39 @@ public class CategoryService(IUnitOfWork unitOfWork, IMapper mapper) : ICategory
         {
             throw new ApiException("Tên danh mục đã tồn tại");
         }
-        // --- THÊM MỚI 2: Validate ParentId ---
+        // --- Validate ParentId ---
         if (request.ParentId.HasValue && !all.Any(c => c.Id == request.ParentId.Value))
         {
             throw new NotFoundException("Danh mục cha không tồn tại.");
         }
         var category = mapper.Map<Category>(request);
-        // Slug đã được tạo tự động trong AutoMapper Profile
+
+        // --- XỬ LÝ SLUG SẠCH & CHỐNG TRÙNG LẶP ---
+        string baseSlug = category.Name.ToSlug(); // Gọi Helper
+        string finalSlug = baseSlug;
+        int counter = 1;
+
+        // Dùng biến 'all' đã lấy ở trên để check trùng luôn cho nhẹ DB
+        while (all.Any(c => c.Slug == finalSlug))
+        {
+            finalSlug = $"{baseSlug}-{counter}";
+            counter++;
+        }
+        category.Slug = finalSlug;
 
         await unitOfWork.Categories.AddAsync(category);
         await unitOfWork.CompleteAsync();
 
         return mapper.Map<CategoryDto>(category);
     }
-
+    // 6. CẬP NHẬT
     // 6. CẬP NHẬT
     public async Task UpdateAsync(UpdateCategoryDto request)
     {
         var category = await unitOfWork.Categories.GetByIdAsync(request.Id);
         if (category == null) throw new NotFoundException("Danh mục không tồn tại");
-        // --- THÊM MỚI 3: Validate chặn vòng lặp cha-con ---
+
+        // --- Validate chặn vòng lặp cha-con ---
         if (request.ParentId == request.Id)
             throw new ApiException("Danh mục không thể tự làm cha của chính nó.");
 
@@ -144,7 +159,21 @@ public class CategoryService(IUnitOfWork unitOfWork, IMapper mapper) : ICategory
 
         // Map dữ liệu mới vào
         mapper.Map(request, category);
-        // Slug sẽ được cập nhật lại theo Name mới nhờ AutoMapper
+
+        // --- CẬP NHẬT LẠI SLUG KHI LƯU ---
+        string baseSlug = category.Name.ToSlug();
+        string finalSlug = baseSlug;
+        int counter = 1;
+
+        // Check trùng slug (loại trừ ID của chính danh mục này)
+        // Dùng Queryable để lấy trực tiếp từ DB cho chuẩn xác
+        while (await unitOfWork.Categories.GetAllQueryable()
+               .AnyAsync(c => c.Slug == finalSlug && c.Id != category.Id))
+        {
+            finalSlug = $"{baseSlug}-{counter}";
+            counter++;
+        }
+        category.Slug = finalSlug;
 
         unitOfWork.Categories.Update(category);
         await unitOfWork.CompleteAsync();

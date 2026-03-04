@@ -14,8 +14,7 @@ public static class StringHelper
         // 1. Chuyển thành chữ thường
         text = text.ToLowerInvariant();
 
-        // 2. Xử lý chữ 'đ' riêng (Trước khi Normalize để tránh lỗi sót font)
-        // Vì đã ToLower nên chỉ cần replace 'đ', không cần 'Đ'
+        // 2. Xử lý chữ 'đ' riêng 
         text = text.Replace("đ", "d");
 
         // 3. Bỏ dấu (Normalize)
@@ -34,14 +33,24 @@ public static class StringHelper
         text = stringBuilder.ToString().Normalize(NormalizationForm.FormC);
 
         // 4. Giữ lại: Chữ thường, số, khoảng trắng (\s), gạch ngang (-)
-        // Loại bỏ các ký tự đặc biệt (@, #, $, %, ^, &...)
         text = Regex.Replace(text, @"[^a-z0-9\s-]", "");
+
+        //  [ĐOẠN THÊM MỚI] 4.5. Trảm các "Từ nối" (Stop words) tiếng Việt
+        // Lưu ý: Đã bỏ dấu ở trên nên danh sách này viết không dấu
+        string[] stopWords = {
+            "va", "cua", "cho", "voi", "trong", "o", "nhung", "cac",
+            "de", "thi", "ma", "nhu", "nay", "den", "boi", "ve",
+            "ra", "lai", "rang", "nao", "duoc", "bi", "lam", "su", "viec", "mot", "nhung"
+        };
+        // Tạo Regex tìm chính xác các từ đứng độc lập (\b là word boundary)
+        string stopWordsPattern = $@"\b({string.Join("|", stopWords)})\b";
+        text = Regex.Replace(text, stopWordsPattern, "");
+        //  [KẾT THÚC ĐOẠN THÊM MỚI]
 
         // 5. Chuyển khoảng trắng thành gạch ngang
         text = Regex.Replace(text, @"\s+", "-");
 
         // 6. QUAN TRỌNG: Gộp nhiều dấu gạch ngang liên tiếp thành 1
-        // Ví dụ: "a---b" -> "a-b"
         text = Regex.Replace(text, @"-+", "-");
 
         // 7. Cắt gạch ngang thừa ở đầu và cuối

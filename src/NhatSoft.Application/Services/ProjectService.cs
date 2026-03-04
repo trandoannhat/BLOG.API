@@ -25,7 +25,6 @@ public class ProjectService(IUnitOfWork unitOfWork, IMapper mapper) : IProjectSe
         if (request.ImageUrls != null && request.ImageUrls.Any())
         {
             project.Images = new List<ProjectImage>();
-
             var thumbUrl = request.ThumbnailUrl;
             if (string.IsNullOrEmpty(thumbUrl))
             {
@@ -44,10 +43,20 @@ public class ProjectService(IUnitOfWork unitOfWork, IMapper mapper) : IProjectSe
             }
         }
 
-        if (string.IsNullOrEmpty(project.Slug))
+        // --- TẠO SLUG SẠCH & CHỐNG TRÙNG LẶP ---
+        // Nếu FE có gửi Slug thì ưu tiên dùng (và ép qua ToSlug để dọn rác), nếu không thì lấy Name
+        string sourceText = string.IsNullOrEmpty(request.Slug) ? request.Name : request.Slug;
+        string baseSlug = sourceText.ToSlug();
+        string finalSlug = baseSlug;
+        int counter = 1;
+
+        // Vòng lặp check trùng
+        while (await unitOfWork.Projects.GetAllQueryable().AnyAsync(p => p.Slug == finalSlug))
         {
-            project.Slug = request.Name.ToSlug();
+            finalSlug = $"{baseSlug}-{counter}";
+            counter++;
         }
+        project.Slug = finalSlug;
 
         await unitOfWork.Projects.AddAsync(project);
         await unitOfWork.CompleteAsync();
@@ -146,7 +155,21 @@ public class ProjectService(IUnitOfWork unitOfWork, IMapper mapper) : IProjectSe
         project.StartDate = request.StartDate;
         project.CompletedDate = request.CompletedDate;
         project.IsFeatured = request.IsFeatured;
-        project.Slug = string.IsNullOrEmpty(request.Slug) ? request.Name.ToSlug() : request.Slug;
+
+        // --- CẬP NHẬT LẠI SLUG KHI LƯU & CHỐNG TRÙNG ---
+        string sourceText = string.IsNullOrEmpty(request.Slug) ? request.Name : request.Slug;
+        string baseSlug = sourceText.ToSlug();
+        string finalSlug = baseSlug;
+        int counter = 1;
+
+        // Check trùng slug (Nhớ loại trừ ID của chính project đang sửa)
+        while (await unitOfWork.Projects.GetAllQueryable()
+               .AnyAsync(p => p.Slug == finalSlug && p.Id != id))
+        {
+            finalSlug = $"{baseSlug}-{counter}";
+            counter++;
+        }
+        project.Slug = finalSlug;
 
         if (request.TechStacks != null)
         {
