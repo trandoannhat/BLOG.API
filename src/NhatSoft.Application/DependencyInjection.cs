@@ -20,6 +20,7 @@ public static class DependencyInjection
         services.AddScoped<IPostService, PostService>();
         services.AddScoped<IProjectService, ProjectService>();
         services.AddScoped<IProjectImageService, ProjectImageService>();
+        services.AddScoped<ISystemSettingService, SystemSettingService>();
 
         return services;
     }

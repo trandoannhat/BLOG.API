@@ -51,7 +51,7 @@ namespace NhatSoft.API.Controllers
         [Authorize]
         public async Task<IActionResult> GetProfile()
         {
-            // ✅ Đã đồng bộ cách lấy ID an toàn nhất
+            //  Đã đồng bộ cách lấy ID an toàn nhất
             var userId = User.FindFirstValue("id") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userId)) return Unauthorized();
 
@@ -63,7 +63,7 @@ namespace NhatSoft.API.Controllers
         [Authorize]
         public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
         {
-            // ✅ Đã đồng bộ cách lấy ID an toàn nhất
+            //  Đã đồng bộ cách lấy ID an toàn nhất
             var userId = User.FindFirstValue("id") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userId)) return Unauthorized();
 
