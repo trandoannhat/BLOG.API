@@ -13,33 +13,68 @@ public class PostService(IUnitOfWork unitOfWork, IMapper mapper) : IPostService
     // 1. GET PAGED LIST (Admin & User)
     public async Task<(IEnumerable<PostDto> Data, int TotalRecords)> GetPagedPostsAsync(PostFilterParams filter)
     {
-        // Phải Include Category và Author để map tên ra DTO
+        // 1. Khởi tạo Query với các Include cần thiết
         var query = unitOfWork.Posts.GetAllQueryable()
             .Include(p => p.Category)
             .Include(p => p.Author)
             .AsQueryable();
 
-        // --- FILTER ---
+        // --- 2. LOGIC LỌC DANH MỤC (NÂNG CẤP) ---
+
+        // Ưu tiên lọc theo Slug (Dành cho Web Next.js)
+        if (!string.IsNullOrEmpty(filter.CategorySlug))
+        {
+            var category = await unitOfWork.Categories.GetAllQueryable()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Slug == filter.CategorySlug);
+
+            if (category != null)
+            {
+                // Lấy ID của chính nó và tất cả các con trực tiếp của nó
+                var categoryIds = await unitOfWork.Categories.GetAllQueryable()
+                    .Where(c => c.Id == category.Id || c.ParentId == category.Id)
+                    .Select(c => c.Id)
+                    .ToListAsync();
+
+                query = query.Where(p => categoryIds.Contains(p.CategoryId));
+            }
+            else
+            {
+                // Nếu slug sai, trả về rỗng luôn để tránh hiện bài viết lung tung
+                return (new List<PostDto>(), 0);
+            }
+        }
+        // Nếu không có Slug thì lọc theo ID (Dành cho trang Admin)
+        else if (filter.CategoryId.HasValue)
+        {
+            query = query.Where(p => p.CategoryId == filter.CategoryId.Value);
+        }
+
+        // --- 3. CÁC FILTER KHÁC ---
         if (!string.IsNullOrEmpty(filter.Keyword))
         {
             string keyword = filter.Keyword.ToLower().Trim();
-            query = query.Where(p => p.Title.ToLower().Contains(keyword) || p.Summary.Contains(keyword));
+            query = query.Where(p => p.Title.ToLower().Contains(keyword) ||
+                                     p.Summary.ToLower().Contains(keyword));
         }
 
-        if (filter.CategoryId.HasValue)
-            query = query.Where(p => p.CategoryId == filter.CategoryId.Value);
+        if (filter.AuthorId.HasValue)
+            query = query.Where(p => p.AuthorId == filter.AuthorId.Value);
 
         if (filter.IsPublished.HasValue)
             query = query.Where(p => p.IsPublished == filter.IsPublished.Value);
 
-        // Nếu là user thường xem blog -> Chỉ hiện bài đã Published (Logic này có thể tách ra service riêng hoặc filter ở Controller)
-        // query = query.Where(p => p.IsPublished == true); 
+        if (filter.FromDate.HasValue)
+            query = query.Where(p => p.CreatedAt >= filter.FromDate.Value);
 
-        // --- SORT & PAGING ---
+        if (filter.ToDate.HasValue)
+            query = query.Where(p => p.CreatedAt <= filter.ToDate.Value);
+
+        // --- 4. SORT & PAGING ---
         var totalRecords = await query.CountAsync();
 
         var posts = await query
-            .OrderByDescending(p => p.CreatedAt) // Mới nhất lên đầu
+            .OrderByDescending(p => p.CreatedAt)
             .Skip((filter.PageNumber - 1) * filter.PageSize)
             .Take(filter.PageSize)
             .ToListAsync();
