@@ -1,15 +1,10 @@
-﻿
-
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.Win32;
 using NhatSoft.Application.DTOs.Account;
 using NhatSoft.Application.Interfaces;
 using NhatSoft.Application.Settings;
-using NhatSoft.Common.Exceptions;
 using NhatSoft.Common.Wrappers;
-// 👇 IMPORT AppConstants
-using NhatSoft.Common.Constants;
 using NhatSoft.Domain.Entities;
 using NhatSoft.Domain.Enums;
 using NhatSoft.Domain.Interfaces;
@@ -25,17 +20,15 @@ public class AccountService(
 {
     private readonly JwtSettings _jwtSettings = jwtSettings.Value;
 
-    // 1. ĐĂNG KÝ
+    // ==========================================
+    // 1. PUBLIC ENDPOINTS (Auth)
+    // ==========================================
     public async Task<ApiResponse<string>> RegisterAsync(RegisterRequest request)
     {
         var existingUser = (await unitOfWork.Users.FindAsync(u => u.Email == request.Email)).FirstOrDefault();
         if (existingUser != null)
         {
-            return new ApiResponse<string>
-            {
-                Success = false,
-                Message = "Email này đã được sử dụng."
-            };
+            return new ApiResponse<string> { Success = false, Message = "Email này đã được sử dụng." };
         }
 
         var newUser = new User
@@ -43,13 +36,6 @@ public class AccountService(
             FullName = request.FullName,
             Email = request.Email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
-
-            // 👇 SỬA LẠI: Gán Role mặc định bằng hằng số từ AppConstants (Nếu Entity lưu kiểu String)
-            // Lưu ý: Nếu Entity User của bạn đang định nghĩa public UserRole Role {get;set;} 
-            // thì bạn VẪN giữ nguyên UserRole.Client ở đây, và chỉ map sang string ở phần Token bên dưới nhé.
-            // Giả định ở đây Entity lưu String:
-            //Role = AppConstants.Roles.User
-            //  FIX Ở ĐÂY: Trả về kiểu Enum vì DB của bạn đang dùng Enum
             Role = UserRole.Client
         };
 
@@ -59,7 +45,6 @@ public class AccountService(
         return new ApiResponse<string>(data: newUser.Id.ToString(), message: "Đăng ký thành công", "register");
     }
 
-    // 2. ĐĂNG NHẬP
     public async Task<ApiResponse<AuthenticationResponse>> AuthenticateAsync(LoginRequest request)
     {
         var user = (await unitOfWork.Users.FindAsync(u => u.Email == request.Email)).FirstOrDefault();
@@ -71,14 +56,12 @@ public class AccountService(
 
         var token = GenerateJwtToken(user);
 
-        // 👇 Trả về Roles để bên Frontend (React/Zustand) hứng được chữ "Admin"
         var response = new AuthenticationResponse
         {
             Id = user.Id.ToString(),
             UserName = user.FullName,
             Email = user.Email,
             AvatarUrl = user.AvatarUrl,
-            // Chắc chắn rẳng chuỗi này trùng với chuỗi đã lưu
             Roles = new List<string> { user.Role.ToString() },
             IsVerified = true,
             JWToken = token
@@ -87,19 +70,15 @@ public class AccountService(
         return new ApiResponse<AuthenticationResponse>(response, "Đăng nhập thành công", "Authenticate");
     }
 
-    // --- HÀM RIÊNG: SINH TOKEN JWT ---
     private string GenerateJwtToken(User user)
     {
-        // 1. Tạo các Claims
         var claims = new List<Claim>
         {
             new Claim("id", user.Id.ToString()),
-            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()), // Bồi thêm cái này cho chắc cốp
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
             new Claim(JwtRegisteredClaimNames.Sub, user.Email),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            
-            // 👇 Gắn Role vào Token. Chữ 'user.Role.ToString()' lúc này sẽ in ra "Admin" hoặc "Client"
             new Claim(ClaimTypes.Role, user.Role.ToString())
         };
 
@@ -118,6 +97,9 @@ public class AccountService(
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
+    // ==========================================
+    // 2. PROTECTED ENDPOINTS (Self Profile)
+    // ==========================================
     public async Task<ApiResponse<UserProfileDto>> GetProfileAsync(string userId)
     {
         var user = (await unitOfWork.Users.FindAsync(u => u.Id.ToString() == userId)).FirstOrDefault();
@@ -129,7 +111,8 @@ public class AccountService(
             FullName = user.FullName,
             Email = user.Email,
             PhoneNumber = user.PhoneNumber,
-            AvatarUrl = user.AvatarUrl
+            AvatarUrl = user.AvatarUrl,
+            Role = user.Role.ToString()
         };
         return new ApiResponse<UserProfileDto>(profile, "Thành công");
     }
@@ -138,19 +121,11 @@ public class AccountService(
     {
         var user = (await unitOfWork.Users.FindAsync(u => u.Id.ToString() == userId)).FirstOrDefault();
 
-        //  ĐÃ SỬA: Dùng Object Initializer để báo lỗi rõ ràng, dẹp luôn Constructor
         if (user == null)
         {
-            return new ApiResponse<string>
-            {
-                Success = false,
-                Message = "Không tìm thấy người dùng.",
-                Errors = new List<string> { "Không tìm thấy người dùng." },
-                Description = "NhatDev - Error"
-            };
+            return new ApiResponse<string> { Success = false, Message = "Không tìm thấy người dùng." };
         }
 
-        // Cập nhật thông tin
         user.FullName = request.FullName;
         user.PhoneNumber = request.PhoneNumber;
         user.AvatarUrl = request.AvatarUrl;
@@ -158,13 +133,103 @@ public class AccountService(
         unitOfWork.Users.Update(user);
         await unitOfWork.CompleteAsync();
 
-        // Dùng Object Initializer cho trường hợp thành công
-        return new ApiResponse<string>
+        return new ApiResponse<string> { Success = true, Data = user.Id.ToString(), Message = "Cập nhật thành công" };
+    }
+
+    // ==========================================
+    // 3. ADMIN ENDPOINTS (Quản lý User)
+    // ==========================================
+    public async Task<ApiResponse<IEnumerable<UserProfileDto>>> GetAllUsersAsync()
+    {
+        try
         {
-            Success = true,
-            Data = user.Id.ToString(),
-            Message = "Cập nhật thành công",
-            Description = "NhatDev - UpdateProfile"
-        };
+            var users = await unitOfWork.Users.GetAllQueryable()
+                .Select(u => new UserProfileDto
+                {
+                    Id = u.Id.ToString(),
+                    FullName = u.FullName,
+                    Email = u.Email,
+                    PhoneNumber = u.PhoneNumber,
+                    AvatarUrl = u.AvatarUrl,
+                    Role = u.Role.ToString()
+                }).ToListAsync();
+
+            return new ApiResponse<IEnumerable<UserProfileDto>>(users, "Lấy danh sách người dùng thành công");
+        }
+        catch (Exception ex)
+        {
+            return new ApiResponse<IEnumerable<UserProfileDto>>($"Lỗi lấy danh sách: {ex.Message}");
+        }
+    }
+
+    public async Task<ApiResponse<string>> UpdateUserRoleAsync(string currentUserId, string targetUserId, UserRole newRole)
+    {
+        try
+        {
+            var user = (await unitOfWork.Users.FindAsync(u => u.Id.ToString() == targetUserId)).FirstOrDefault();
+            if (user == null) return new ApiResponse<string> { Success = false, Message = "Không tìm thấy người dùng." };
+
+            // 1. Kiểm tra: Admin không được phép tự hạ quyền của chính mình
+            if (currentUserId == targetUserId && user.Role == UserRole.Admin && newRole != UserRole.Admin)
+            {
+                return new ApiResponse<string> { Success = false, Message = "Bạn không thể tự hạ quyền Quản trị viên của chính mình." };
+            }
+
+            // 2. Kiểm tra: Nếu đang hạ quyền một Admin khác, đảm bảo hệ thống không bị mất Admin cuối cùng
+            if (user.Role == UserRole.Admin && newRole != UserRole.Admin)
+            {
+                var adminCount = unitOfWork.Users.GetAllQueryable().Count(u => u.Role == UserRole.Admin);
+                if (adminCount <= 1)
+                {
+                    return new ApiResponse<string> { Success = false, Message = "Hệ thống phải có ít nhất 1 Quản trị viên. Không thể hạ quyền Admin này." };
+                }
+            }
+
+            // Thực hiện cập nhật nếu vượt qua các vòng kiểm tra
+            user.Role = newRole;
+            unitOfWork.Users.Update(user);
+            await unitOfWork.CompleteAsync();
+
+            return new ApiResponse<string>(data: user.Id.ToString(), message: "Cập nhật quyền thành công", "UpdateRole");
+        }
+        catch (Exception ex)
+        {
+            return new ApiResponse<string> { Success = false, Message = $"Lỗi cập nhật: {ex.Message}" };
+        }
+    }
+
+    public async Task<ApiResponse<string>> DeleteUserAsync(string currentUserId, string targetUserId)
+    {
+        try
+        {
+            var user = (await unitOfWork.Users.FindAsync(u => u.Id.ToString() == targetUserId)).FirstOrDefault();
+            if (user == null) return new ApiResponse<string> { Success = false, Message = "Không tìm thấy người dùng." };
+
+            // 1. Kiểm tra: Admin không được phép tự xóa tài khoản của chính mình
+            if (currentUserId == targetUserId)
+            {
+                return new ApiResponse<string> { Success = false, Message = "Bạn không thể tự xóa tài khoản của chính mình." };
+            }
+
+            // 2. Kiểm tra: Nếu đang xóa một Admin khác, đảm bảo hệ thống không bị mất Admin cuối cùng
+            if (user.Role == UserRole.Admin)
+            {
+                var adminCount = await unitOfWork.Users.GetAllQueryable().CountAsync(u => u.Role == UserRole.Admin);
+                if (adminCount <= 1)
+                {
+                    return new ApiResponse<string> { Success = false, Message = "Hệ thống phải có ít nhất 1 Quản trị viên. Không thể xóa Admin này." };
+                }
+            }
+
+            // Thực hiện xóa nếu vượt qua các vòng kiểm tra
+            unitOfWork.Users.Delete(user);
+            await unitOfWork.CompleteAsync();
+
+            return new ApiResponse<string>(data: user.Id.ToString(), message: "Xóa người dùng thành công", "DeleteUser");
+        }
+        catch (Exception ex)
+        {
+            return new ApiResponse<string> { Success = false, Message = $"Lỗi khi xóa: {ex.Message}" };
+        }
     }
 }

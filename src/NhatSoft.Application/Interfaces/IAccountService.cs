@@ -1,5 +1,6 @@
 ﻿using NhatSoft.Application.DTOs.Account;
 using NhatSoft.Common.Wrappers;
+using NhatSoft.Domain.Enums;
 
 namespace NhatSoft.Application.Interfaces;
 
@@ -34,4 +35,32 @@ public interface IAccountService
     /// <param name="request">Dữ liệu cần cập nhật</param>
     /// <returns>Thông báo cập nhật thành công</returns>
     Task<ApiResponse<string>> UpdateProfileAsync(string userId, UpdateProfileRequest request);
+
+    // ==========================================
+    // ADMIN ENDPOINTS
+    // ==========================================
+
+    /// <summary>
+    /// Lấy danh sách toàn bộ người dùng trong hệ thống (Dành cho Admin).
+    /// </summary>
+    Task<ApiResponse<IEnumerable<UserProfileDto>>> GetAllUsersAsync();
+
+    
+
+
+    /// <summary>
+    /// Cập nhật quyền (Role) cho người dùng (Dành cho Admin).
+    /// </summary>
+    /// <param name="currentUserId">Mã định danh của Admin đang thực hiện thao tác</param>
+    /// <param name="targetUserId">Mã định danh người dùng bị thay đổi</param>
+    /// <param name="newRole">Quyền mới (Enum)</param>
+    Task<ApiResponse<string>> UpdateUserRoleAsync(string currentUserId, string targetUserId, UserRole newRole);
+
+
+    /// <summary>
+    /// Xóa tài khoản người dùng khỏi hệ thống (Dành cho Admin).
+    /// </summary>
+    /// <param name="currentUserId">Mã định danh của Admin đang thao tác</param>
+    /// <param name="targetUserId">Mã định danh người dùng bị xóa</param>
+    Task<ApiResponse<string>> DeleteUserAsync(string currentUserId, string targetUserId);
 }
