@@ -13,6 +13,7 @@ public interface IUnitOfWork : IDisposable
     IGenericRepository<ProjectImage> ProjectImages { get; }
     IGenericRepository<Donation> Donations { get; }
     IGenericRepository<SystemSetting> SystemSettings { get; }
+    IGenericRepository<PartnerAd> PartnerAds { get; }
 
     // Sau này thêm các repo khác nếu phát sinh 
     Task<int> CompleteAsync(); // SaveChanges

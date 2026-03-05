@@ -16,6 +16,7 @@ public class NhatSoftDbContext(DbContextOptions<NhatSoftDbContext> options) : Db
     public DbSet<Contact> Contacts { get; set; }
     public DbSet<Donation> Donations { get; set; }
     public DbSet<SystemSetting> SystemSettings { get; set; }
+    public DbSet<PartnerAd> PartnerAds { get; set; }
 
     // --- CẤU HÌNH TỰ ĐỘNG NGÀY GIỜ & SOFT DELETE ---
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

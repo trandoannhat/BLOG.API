@@ -21,6 +21,7 @@ public static class DependencyInjection
         services.AddScoped<IProjectService, ProjectService>();
         services.AddScoped<IProjectImageService, ProjectImageService>();
         services.AddScoped<ISystemSettingService, SystemSettingService>();
+        services.AddScoped<IPartnerAdService, PartnerAdService>();
 
         return services;
     }

@@ -21,6 +21,7 @@ public class UnitOfWork : IUnitOfWork
     private IGenericRepository<ProjectImage>? _projectImages;
     private IGenericRepository<Donation>? _donations;
     private IGenericRepository<SystemSetting>? _systemSettings;
+    private IGenericRepository<PartnerAd>? _partnerAds;
     public UnitOfWork(NhatSoftDbContext context)
     {
         _context = context;
@@ -58,6 +59,10 @@ public class UnitOfWork : IUnitOfWork
     //  IMPLEMENT PROPERTY CHO DONATION
     public IGenericRepository<SystemSetting> SystemSettings =>
         _systemSettings ??= new GenericRepository<SystemSetting>(_context);
+
+    //  IMPLEMENT PROPERTY CHO partner ads
+    public IGenericRepository<PartnerAd> PartnerAds =>
+        _partnerAds ??= new GenericRepository<PartnerAd>(_context);
     // --- 3. CORE METHODS ---
     public async Task<int> CompleteAsync()
     {
